@@ -1,22 +1,21 @@
 version: '3.8'
 
 services:
-  express-tasa-api:
+  veshoy-api:
     build: .
-    container_name: express-tasa-api
+    container_name: veshoy-api
     restart: unless-stopped
-    env_file:
-      - .env
+    # Mantenemos esto para que Docker asocie las variables del panel de Portainer
     environment:
       FLASK_HOST: "0.0.0.0"
       FLASK_PORT: "10001"
-      BACKEND_URL: "http://express-tasa-api:10001"
-      CORS_ORIGINS: "https://${DOMAIN_TASA}"
+      BACKEND_URL: "http://veshoy-api:10001"
+      CORS_ORIGINS: "https://${DOMAIN_TASA}" # <--- Dinámico
     volumes:
-      - express-tasa-data:/app/data
+      - veshoy-data:/app/data
     networks:
       - traefik-net
-      - express-tasa-net
+      - veshoy-net
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:10001/api/health')"]
       interval: 30s
@@ -27,37 +26,35 @@ services:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik-net"
 
-      # HTTP → HTTPS (middleware definido en tu servicio traefik)
-      - "traefik.http.routers.tasa-http.entrypoints=web"
-      - "traefik.http.routers.tasa-http.rule=Host(`${DOMAIN_TASA}`)"
-      - "traefik.http.routers.tasa-http.middlewares=redirect-to-https@docker"
+      # Redirección HTTP → HTTPS
+      - "traefik.http.routers.veshoy-http.entrypoints=web"
+      - "traefik.http.routers.veshoy-http.rule=Host(`${DOMAIN_TASA}`)" # <--- Dinámico
+      - "traefik.http.routers.veshoy-http.middlewares=redirect-to-https@docker"
 
-      # HTTPS
-      - "traefik.http.routers.tasa-https.entrypoints=websecure"
-      - "traefik.http.routers.tasa-https.rule=Host(`${DOMAIN_TASA}`)"
-      - "traefik.http.routers.tasa-https.tls=true"
-      - "traefik.http.routers.tasa-https.tls.certresolver=myresolver"
-      - "traefik.http.routers.tasa-https.service=tasa-svc"
+      # Reglas HTTPS con tu certificado
+      - "traefik.http.routers.veshoy-https.entrypoints=websecure"
+      - "traefik.http.routers.veshoy-https.rule=Host(`${DOMAIN_TASA}`)" # <--- Dinámico
+      - "traefik.http.routers.veshoy-https.tls=true"
+      - "traefik.http.routers.veshoy-https.tls.certresolver=myresolver"
+      - "traefik.http.routers.veshoy-https.service=veshoy-svc"
 
-      # Puerto interno Gunicorn
-      - "traefik.http.services.tasa-svc.loadbalancer.server.port=10001"
+      # Puerto interno del contenedor
+      - "traefik.http.services.veshoy-svc.loadbalancer.server.port=10001"
 
-  express-tasa-scraper:
+  veshoy-scraper:
     build: .
-    container_name: express-tasa-scraper
+    container_name: veshoy-scraper
     restart: unless-stopped
-    env_file:
-      - .env
     environment:
-      BACKEND_URL: "http://express-tasa-api:10001"
+      BACKEND_URL: "http://veshoy-api:10001"
       PLAYWRIGHT_HEADLESS: "true"
-      SCRAPER_INTERVAL_SECONDS: "${SCRAPER_INTERVAL_SECONDS:-3600}"
+      SCRAPER_INTERVAL_SECONDS: "${SCRAPER_INTERVAL_SECONDS:-3600}" # <--- Dinámico con valor por defecto
     volumes:
-      - express-tasa-data:/app/data
+      - veshoy-data:/app/data
     networks:
-      - express-tasa-net
+      - veshoy-net
     depends_on:
-      express-tasa-api:
+      veshoy-api:
         condition: service_healthy
     command: >
       sh -c "while true; do
@@ -68,8 +65,9 @@ services:
 networks:
   traefik-net:
     external: true
-  express-tasa-net:
+  veshoy-net:
     driver: bridge
 
 volumes:
-  express-tasa-data:
+  veshoy-data:
+    driver: local
