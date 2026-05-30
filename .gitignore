@@ -1,0 +1,22 @@
+# Seguridad — NUNCA subir .env al repositorio
+.env
+.env.*
+!.env.example
+
+# Datos sensibles / runtime
+binance-tasa-panel/.env
+binance-tasa-panel/data/tokens.json
+binance-tasa-panel/data/historial.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Logs
+*.log
+
+# SO / IDE
+.DS_Store
+Thumbs.db

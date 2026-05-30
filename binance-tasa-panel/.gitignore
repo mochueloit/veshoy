@@ -1,0 +1,32 @@
+# Seguridad — NUNCA subir .env al repositorio
+.env
+.env.*
+!.env.example
+
+# Datos sensibles / runtime
+data/tokens.json
+data/historial.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Playwright
+playwright-report/
+test-results/
+
+# Logs
+*.log
+scraper/cron_log.log
+
+# SO / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Archivos temporales de exportación
+*.csv

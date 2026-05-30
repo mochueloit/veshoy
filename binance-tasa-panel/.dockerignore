@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.log
+.git/
+.gitignore
+
+scraper/cron_log.log
+*.csv
+
+.idea/
+.vscode/

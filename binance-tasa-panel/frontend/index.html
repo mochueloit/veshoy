@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EXPRESS TASA | Monitor BCV vs Binance</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <style>
+        .loading-shimmer {
+            background: linear-gradient(90deg, #1e2329 25%, #2b3139 50%, #1e2329 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        .apexcharts-tooltip {
+            background: #1e2329 !important;
+            border: 1px solid #2b3139 !important;
+            color: #eaecef !important;
+        }
+        .apexcharts-xaxistooltip, .apexcharts-yaxistooltip {
+            background: #1e2329 !important;
+            border-color: #2b3139 !important;
+            color: #eaecef !important;
+        }
+        #history-modal:not(.hidden) {
+            display: flex;
+        }
+        .history-table tbody tr:hover {
+            background: rgba(243, 186, 47, 0.05);
+        }
+    </style>
+</head>
+<body class="bg-[#0b0e11] text-[#eaecef] font-sans min-h-screen">
+
+    <header class="border-b border-gray-800 bg-[#0b0e11]/90 sticky top-0 z-20 backdrop-blur">
+        <div class="max-w-6xl mx-auto px-4 py-5 flex flex-wrap justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-yellow-500 font-mono italic">
+                    EXPRESS<span class="text-white">TASA</span>
+                </h1>
+                <p class="text-xs text-gray-500 mt-1">BCV oficial vs Binance P2P · actualización automática</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <span id="status-badge" class="text-xs px-3 py-1 rounded-full bg-gray-800 text-gray-400">Cargando...</span>
+                <button id="btn-history" type="button" class="text-xs px-4 py-2 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/30 hover:bg-blue-500/20 transition">
+                    Ver historial
+                </button>
+                <a href="/api/web/export/csv" class="text-xs px-4 py-2 rounded-lg bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 hover:bg-yellow-500/20 transition">
+                    Exportar CSV
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 py-8 space-y-6">
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-[#1e2329] p-5 rounded-2xl border border-gray-700">
+                <p class="text-yellow-500 text-xs font-bold uppercase tracking-widest mb-2">Binance P2P</p>
+                <div id="pb-wrapper" class="text-4xl font-extrabold min-h-[48px]">
+                    <div class="w-28 h-9 loading-shimmer rounded"></div>
+                </div>
+                <p id="upd-b" class="text-[10px] text-gray-500 mt-2">Sincronizando...</p>
+            </div>
+            <div class="bg-[#1e2329] p-5 rounded-2xl border border-gray-700">
+                <p class="text-blue-400 text-xs font-bold uppercase tracking-widest mb-2">BCV Oficial</p>
+                <div id="pv-wrapper" class="text-4xl font-extrabold min-h-[48px]">
+                    <div class="w-28 h-9 loading-shimmer rounded"></div>
+                </div>
+                <p id="upd-v" class="text-[10px] text-gray-500 mt-2">Sincronizando...</p>
+            </div>
+            <div class="bg-[#1e2329] p-5 rounded-2xl border border-gray-700">
+                <p class="text-emerald-400 text-xs font-bold uppercase tracking-widest mb-2">Brecha (Binance − BCV)</p>
+                <div id="spread-wrapper" class="text-4xl font-extrabold min-h-[48px] text-emerald-400">
+                    <div class="w-28 h-9 loading-shimmer rounded"></div>
+                </div>
+                <p id="spread-pct" class="text-[10px] text-gray-500 mt-2">Calculando...</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div class="bg-[#14181d] rounded-xl p-4 border border-gray-800">
+                <p class="text-[10px] uppercase text-gray-500">Brecha máxima</p>
+                <p id="stat-max" class="text-lg font-mono text-red-400 mt-1">—</p>
+            </div>
+            <div class="bg-[#14181d] rounded-xl p-4 border border-gray-800">
+                <p class="text-[10px] uppercase text-gray-500">Brecha mínima</p>
+                <p id="stat-min" class="text-lg font-mono text-green-400 mt-1">—</p>
+            </div>
+            <div class="bg-[#14181d] rounded-xl p-4 border border-gray-800">
+                <p class="text-[10px] uppercase text-gray-500">Brecha promedio</p>
+                <p id="stat-avg" class="text-lg font-mono text-yellow-400 mt-1">—</p>
+            </div>
+            <div class="bg-[#14181d] rounded-xl p-4 border border-gray-800">
+                <p class="text-[10px] uppercase text-gray-500">Registros</p>
+                <p id="stat-count" class="text-lg font-mono text-gray-300 mt-1">—</p>
+            </div>
+        </div>
+
+        <div class="bg-[#1e2329] p-4 md:p-6 rounded-2xl border border-gray-700">
+            <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
+                <h2 class="text-sm font-semibold text-gray-400 font-mono uppercase tracking-tight">
+                    Evolución de tasas
+                </h2>
+                <div class="flex gap-2 text-[10px]">
+                    <button id="range-all" class="range-btn px-3 py-1 rounded bg-yellow-500/20 text-yellow-400 border border-yellow-500/40">Todo</button>
+                    <button id="range-24h" class="range-btn px-3 py-1 rounded bg-gray-800 text-gray-400 border border-gray-700">24h</button>
+                    <button id="range-7d" class="range-btn px-3 py-1 rounded bg-gray-800 text-gray-400 border border-gray-700">7 días</button>
+                </div>
+            </div>
+            <div id="chart-prices" class="min-h-[360px]"></div>
+        </div>
+
+        <div class="bg-[#1e2329] p-4 md:p-6 rounded-2xl border border-gray-700">
+            <h2 class="text-sm font-semibold text-gray-400 font-mono uppercase tracking-tight mb-4">
+                Brecha entre mercado y oficial (%)
+            </h2>
+            <div id="chart-spread" class="min-h-[220px]"></div>
+        </div>
+
+    </main>
+
+    <!-- Modal historial -->
+    <div id="history-modal" class="hidden fixed inset-0 z-50 items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+        <div class="bg-[#1e2329] w-full max-w-4xl max-h-[90vh] rounded-2xl border border-gray-700 shadow-2xl flex flex-col overflow-hidden">
+            <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-gray-700">
+                <div>
+                    <h2 class="text-lg font-semibold text-white font-mono">Historial de tasas</h2>
+                    <p class="text-xs text-gray-500 mt-1">Binance P2P vs BCV · más recientes primero</p>
+                </div>
+                <button id="btn-close-history" type="button" class="text-gray-400 hover:text-white text-2xl leading-none px-2" aria-label="Cerrar">&times;</button>
+            </div>
+
+            <div class="px-5 py-3 border-b border-gray-800 flex flex-wrap items-center justify-between gap-3">
+                <p id="history-summary" class="text-xs text-gray-500 font-mono">—</p>
+                <div class="flex items-center gap-2 text-xs">
+                    <label for="history-page-size" class="text-gray-500">Por página</label>
+                    <select id="history-page-size" class="bg-[#14181d] border border-gray-700 rounded-lg px-2 py-1 text-gray-300 focus:outline-none focus:border-yellow-500/50">
+                        <option value="10">10</option>
+                        <option value="15" selected>15</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="overflow-auto flex-1 px-5 py-2">
+                <table class="history-table w-full text-sm font-mono">
+                    <thead class="sticky top-0 bg-[#1e2329]">
+                        <tr class="text-left text-[10px] uppercase tracking-wider text-gray-500 border-b border-gray-700">
+                            <th class="py-3 pr-4">Fecha</th>
+                            <th class="py-3 pr-4 text-yellow-400">Binance</th>
+                            <th class="py-3 pr-4 text-blue-400">BCV</th>
+                            <th class="py-3 pr-4 text-emerald-400">Brecha</th>
+                            <th class="py-3 text-emerald-400">Brecha %</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-table-body">
+                        <tr><td colspan="5" class="py-8 text-center text-gray-500">Cargando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="px-5 py-4 border-t border-gray-700 flex flex-wrap items-center justify-between gap-3">
+                <button id="history-prev" type="button" class="px-4 py-2 text-xs rounded-lg bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition">
+                    ← Anterior
+                </button>
+                <span id="history-page-info" class="text-xs text-gray-400 font-mono">Página 1 de 1</span>
+                <button id="history-next" type="button" class="px-4 py-2 text-xs rounded-lg bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition">
+                    Siguiente →
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const REFRESH_MS = 5 * 60 * 1000;
+        let fullHistory = [];
+        let priceChart = null;
+        let spreadChart = null;
+        let activeRange = 'all';
+        let historyPage = 1;
+        let historyPageSize = 15;
+
+        function fmt(n, dec = 2) {
+            return Number(n).toLocaleString('es-VE', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+        }
+
+        function parseDate(str) {
+            return new Date(str.replace(' ', 'T'));
+        }
+
+        function filterByRange(data, range) {
+            if (range === 'all' || !data.length) return data;
+            const now = parseDate(data[data.length - 1].fecha);
+            const hours = range === '24h' ? 24 : 24 * 7;
+            const cutoff = new Date(now.getTime() - hours * 3600000);
+            return data.filter(row => parseDate(row.fecha) >= cutoff);
+        }
+
+        function renderCards(latest) {
+            document.getElementById('pb-wrapper').innerHTML =
+                `${fmt(latest.binance)} <span class="text-lg text-gray-500">VES</span>`;
+            document.getElementById('pv-wrapper').innerHTML =
+                `${fmt(latest.bcv)} <span class="text-lg text-gray-500">VES</span>`;
+            document.getElementById('spread-wrapper').innerHTML =
+                `${fmt(latest.brecha)} <span class="text-lg text-gray-500">VES</span>`;
+            document.getElementById('spread-pct').innerText =
+                `${fmt(latest.brecha_pct)}% sobre BCV oficial`;
+            document.getElementById('upd-b').innerText = `Actualizado: ${latest.fecha}`;
+            document.getElementById('upd-v').innerText = `Actualizado: ${latest.fecha}`;
+            document.getElementById('status-badge').textContent = 'En línea';
+            document.getElementById('status-badge').className =
+                'text-xs px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
+        }
+
+        function renderStats(data) {
+            if (!data.length) return;
+            const gaps = data.map(d => d.brecha);
+            const max = Math.max(...gaps);
+            const min = Math.min(...gaps);
+            const avg = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+            document.getElementById('stat-max').textContent = `${fmt(max)} VES`;
+            document.getElementById('stat-min').textContent = `${fmt(min)} VES`;
+            document.getElementById('stat-avg').textContent = `${fmt(avg)} VES`;
+            document.getElementById('stat-count').textContent = data.length;
+        }
+
+        function chartBaseOptions(categories) {
+            return {
+                chart: {
+                    type: 'area',
+                    height: 360,
+                    background: 'transparent',
+                    toolbar: {
+                        show: true,
+                        tools: { download: true, selection: true, zoom: true, zoomin: true, zoomout: true, pan: true, reset: true }
+                    },
+                    zoom: { enabled: true, type: 'x' },
+                    animations: { enabled: true, easing: 'easeinout', speed: 600 }
+                },
+                theme: { mode: 'dark' },
+                grid: { borderColor: '#2b3139', strokeDashArray: 4 },
+                stroke: { curve: 'smooth', width: 2.5 },
+                dataLabels: { enabled: false },
+                xaxis: {
+                    categories,
+                    labels: { style: { colors: '#848e9c', fontFamily: 'monospace' }, rotate: -35 },
+                    axisBorder: { color: '#2b3139' },
+                    axisTicks: { color: '#2b3139' }
+                },
+                yaxis: {
+                    labels: {
+                        style: { colors: '#848e9c', fontFamily: 'monospace' },
+                        formatter: v => fmt(v)
+                    }
+                },
+                tooltip: {
+                    theme: 'dark',
+                    x: { show: true },
+                    y: { formatter: v => `${fmt(v)} VES` }
+                },
+                legend: {
+                    labels: { colors: '#848e9c' },
+                    fontFamily: 'monospace'
+                },
+                fill: {
+                    type: 'gradient',
+                    gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0.02, stops: [0, 90, 100] }
+                }
+            };
+        }
+
+        function drawCharts(data) {
+            const filtered = filterByRange(data, activeRange);
+            const labels = filtered.map(x => x.fecha);
+
+            const priceOptions = {
+                ...chartBaseOptions(labels),
+                series: [
+                    { name: 'Binance P2P', data: filtered.map(x => x.binance) },
+                    { name: 'BCV Oficial', data: filtered.map(x => x.bcv) }
+                ],
+                colors: ['#f3ba2f', '#60a5fa']
+            };
+
+            const spreadOptions = {
+                ...chartBaseOptions(labels),
+                chart: { ...chartBaseOptions(labels).chart, height: 220, type: 'bar' },
+                series: [{ name: 'Brecha %', data: filtered.map(x => x.brecha_pct) }],
+                colors: ['#34d399'],
+                plotOptions: {
+                    bar: { borderRadius: 4, columnWidth: '55%' }
+                },
+                yaxis: {
+                    labels: {
+                        style: { colors: '#848e9c', fontFamily: 'monospace' },
+                        formatter: v => `${fmt(v)}%`
+                    }
+                },
+                tooltip: { theme: 'dark', y: { formatter: v => `${fmt(v)}%` } },
+                fill: { type: 'solid', opacity: 0.85 }
+            };
+
+            if (priceChart) priceChart.destroy();
+            if (spreadChart) spreadChart.destroy();
+
+            priceChart = new ApexCharts(document.querySelector('#chart-prices'), priceOptions);
+            spreadChart = new ApexCharts(document.querySelector('#chart-spread'), spreadOptions);
+            priceChart.render();
+            spreadChart.render();
+        }
+
+        function setActiveRange(range) {
+            activeRange = range;
+            document.querySelectorAll('.range-btn').forEach(btn => {
+                btn.className = 'range-btn px-3 py-1 rounded bg-gray-800 text-gray-400 border border-gray-700';
+            });
+            const map = { all: 'range-all', '24h': 'range-24h', '7d': 'range-7d' };
+            const active = document.getElementById(map[range]);
+            if (active) {
+                active.className = 'range-btn px-3 py-1 rounded bg-yellow-500/20 text-yellow-400 border border-yellow-500/40';
+            }
+            drawCharts(fullHistory);
+            renderStats(filterByRange(fullHistory, activeRange));
+        }
+
+        function getHistorySorted() {
+            return [...fullHistory].reverse();
+        }
+
+        function getHistoryTotalPages() {
+            const total = getHistorySorted().length;
+            return Math.max(1, Math.ceil(total / historyPageSize));
+        }
+
+        function renderHistoryTable() {
+            const sorted = getHistorySorted();
+            const total = sorted.length;
+            const totalPages = getHistoryTotalPages();
+
+            if (historyPage > totalPages) historyPage = totalPages;
+            if (historyPage < 1) historyPage = 1;
+
+            const start = (historyPage - 1) * historyPageSize;
+            const pageRows = sorted.slice(start, start + historyPageSize);
+            const tbody = document.getElementById('history-table-body');
+
+            document.getElementById('history-summary').textContent =
+                total ? `${total} registros en total` : 'Sin registros';
+            document.getElementById('history-page-info').textContent =
+                total ? `Página ${historyPage} de ${totalPages}` : 'Sin datos';
+            document.getElementById('history-prev').disabled = historyPage <= 1;
+            document.getElementById('history-next').disabled = historyPage >= totalPages;
+
+            if (!pageRows.length) {
+                tbody.innerHTML = '<tr><td colspan="5" class="py-8 text-center text-gray-500">No hay datos en el historial</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = pageRows.map(row => `
+                <tr class="border-b border-gray-800/80">
+                    <td class="py-3 pr-4 text-gray-300 whitespace-nowrap">${row.fecha}</td>
+                    <td class="py-3 pr-4 text-yellow-400">${fmt(row.binance)} VES</td>
+                    <td class="py-3 pr-4 text-blue-400">${fmt(row.bcv)} VES</td>
+                    <td class="py-3 pr-4 text-emerald-400">${fmt(row.brecha)} VES</td>
+                    <td class="py-3 text-emerald-400">${fmt(row.brecha_pct)}%</td>
+                </tr>
+            `).join('');
+        }
+
+        function openHistoryModal() {
+            document.getElementById('history-modal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            historyPage = 1;
+            if (!fullHistory.length) {
+                loadData().then(() => renderHistoryTable());
+            } else {
+                renderHistoryTable();
+            }
+        }
+
+        function closeHistoryModal() {
+            document.getElementById('history-modal').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        async function loadData() {
+            try {
+                const [r1, r2] = await Promise.all([
+                    fetch('/api/web/tasa'),
+                    fetch('/api/web/history')
+                ]);
+                if (!r1.ok || !r2.ok) throw new Error('Error al cargar datos');
+
+                const latest = await r1.json();
+                fullHistory = await r2.json();
+
+                renderCards(latest);
+                renderStats(filterByRange(fullHistory, activeRange));
+                drawCharts(fullHistory);
+
+                if (!document.getElementById('history-modal').classList.contains('hidden')) {
+                    renderHistoryTable();
+                }
+            } catch (err) {
+                console.error(err);
+                document.getElementById('status-badge').textContent = 'Sin conexión';
+                document.getElementById('status-badge').className =
+                    'text-xs px-3 py-1 rounded-full bg-red-500/10 text-red-400 border border-red-500/30';
+            }
+        }
+
+        document.getElementById('range-all').addEventListener('click', () => setActiveRange('all'));
+        document.getElementById('range-24h').addEventListener('click', () => setActiveRange('24h'));
+        document.getElementById('range-7d').addEventListener('click', () => setActiveRange('7d'));
+
+        document.getElementById('btn-history').addEventListener('click', openHistoryModal);
+        document.getElementById('btn-close-history').addEventListener('click', closeHistoryModal);
+        document.getElementById('history-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'history-modal') closeHistoryModal();
+        });
+        document.getElementById('history-prev').addEventListener('click', () => {
+            if (historyPage > 1) {
+                historyPage--;
+                renderHistoryTable();
+            }
+        });
+        document.getElementById('history-next').addEventListener('click', () => {
+            if (historyPage < getHistoryTotalPages()) {
+                historyPage++;
+                renderHistoryTable();
+            }
+        });
+        document.getElementById('history-page-size').addEventListener('change', (e) => {
+            historyPageSize = parseInt(e.target.value, 10);
+            historyPage = 1;
+            renderHistoryTable();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeHistoryModal();
+        });
+
+        loadData();
+        setInterval(loadData, REFRESH_MS);
+    </script>
+</body>
+</html>

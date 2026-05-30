@@ -1,0 +1,14 @@
+# --- Web API ---
+Flask>=3.0,<4
+flask-cors>=4.0,<7
+gunicorn>=22.0,<24
+
+# --- Configuración ---
+python-dotenv>=1.0,<2
+
+# --- HTTP / Scraping ---
+requests>=2.31,<3
+playwright>=1.49,<2
+
+# Nota: con la imagen mcr.microsoft.com/playwright/python NO ejecutes
+# "playwright install" en el Dockerfile; los navegadores ya vienen incluidos.
